@@ -359,8 +359,10 @@ typedef struct FFMS_VideoProperties {
     int CropLeft;
     int CropRight;
     int TopFieldFirst;
+#if defined(FFMS_WITH_DEPRECATED)
     FFMS_DEPRECATED int ColorSpace; /* Provided in FFMS_Frame */
     FFMS_DEPRECATED int ColorRange; /* Provided in FFMS_Frame */
+#endif
     double FirstTime;
     double LastTime;
     /* Introduced in FFMS_VERSION ((2 << 24) | (24 << 16) | (0 << 8) | 0) */

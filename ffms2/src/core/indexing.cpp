@@ -248,7 +248,8 @@ FFMS_Indexer::FFMS_Indexer(const char *Filename)
         }
 
         for (unsigned int i = 0; i < FormatContext->nb_streams; i++)
-            if (FormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+            if (FormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO ||
+                FormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
                 IndexMask.insert(i);
 
         DecodeFrame = av_frame_alloc();

@@ -542,6 +542,7 @@ void FFMS_VideoSource::SetVideoProperties() {
     }
     VP.NumFrames = Frames.VisibleFrameCount();
     VP.TopFieldFirst = DecodeFrame->top_field_first;
+#if defined(FFMS_WITH_DEPRECATED)
     VP.ColorSpace = CodecContext->colorspace;
     VP.ColorRange = CodecContext->color_range;
     // these pixfmt's are deprecated but still used
@@ -550,7 +551,7 @@ void FFMS_VideoSource::SetVideoProperties() {
         CodecContext->pix_fmt == AV_PIX_FMT_YUVJ444P
         )
         VP.ColorRange = AVCOL_RANGE_JPEG;
-
+#endif
 
     VP.FirstTime = ((Frames[Frames.RealFrameNumber(0)].PTS * Frames.TB.Num) / (double)Frames.TB.Den) / 1000;
     VP.LastTime = ((Frames[Frames.RealFrameNumber(Frames.VisibleFrameCount()-1)].PTS * Frames.TB.Num) / (double)Frames.TB.Den) / 1000;

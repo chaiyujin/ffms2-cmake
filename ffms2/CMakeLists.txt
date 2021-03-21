@@ -13,6 +13,7 @@ file(GLOB_RECURSE _ffms2_headers ${PROJECT_SOURCE_DIR}/*.h   ${PROJECT_SOURCE_DI
 file(GLOB_RECURSE _ffms2_sources ${PROJECT_SOURCE_DIR}/*.cxx ${PROJECT_SOURCE_DIR}/*.cpp)
 
 # add library
+# add_definitions("-DFFMS_WITH_DEPRECATED")  # enbale DEPRECATED
 add_library               (${PROJECT_NAME} ${_ffms2_headers} ${_ffms2_sources})
-target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/core)
 target_link_libraries     (${PROJECT_NAME} PUBLIC FFmpeg::FFmpeg ZLIB::ZLIB)

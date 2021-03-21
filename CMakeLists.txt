@@ -7,5 +7,5 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 add_subdirectory(ffms2)
 
-add_executable(test_ffms2 test.cpp)
+add_executable(test_ffms2 test.cpp video_reader.cpp)
 target_link_libraries(test_ffms2 ffms2)
