@@ -1,6 +1,7 @@
 .vscode
 assets
 build
+external
 
 # Prerequisites
 *.d

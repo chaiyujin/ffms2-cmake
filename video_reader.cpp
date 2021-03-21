@@ -13,8 +13,8 @@ bool VideoReader::_Initialize()
 
 VideoReader::VideoReader()
     : is_open_(false)
-    , video_sources_(0)
-    , audio_sources_(0)
+    , video_tracks_(0)
+    , audio_tracks_(0)
 {
     VideoReader::_Initialize();
     // init error info handler
@@ -34,7 +34,7 @@ void VideoReader::_handle_error()
     exit(1);
 }
 
-bool VideoReader::_open_video_source(std::string _fpath, int _trackno, FFMS_Index * _index)
+bool VideoReader::_open_video_track(std::string _fpath, int _trackno, FFMS_Index * _index)
 {
     printf("Try to open video track: %d\n", _trackno);
     /* We now have enough information to create the video source object */
@@ -83,10 +83,11 @@ bool VideoReader::_open_video_source(std::string _fpath, int _trackno, FFMS_Inde
         return false;
     }
 
-    video_sources_.push_back({_trackno, video_source});
+    video_tracks_.push_back({_trackno, video_source, FFMS_GetVideoProperties(video_source)});
     return true;
 }
-bool VideoReader::_open_audio_source(std::string _fpath, int _trackno, FFMS_Index * _index)
+
+bool VideoReader::_open_audio_track(std::string _fpath, int _trackno, FFMS_Index * _index)
 {
     printf("Try to open audio track: %d\n", _trackno);
     /* We now have enough information to create the video source object */
@@ -95,23 +96,34 @@ bool VideoReader::_open_audio_source(std::string _fpath, int _trackno, FFMS_Inde
     );
     if (audio_source == nullptr) { this->_handle_error(); return false;}
 
-    audio_sources_.push_back({_trackno, audio_source});
+    // resample into S16
+    auto * resample_options = FFMS_CreateResampleOptions(audio_source);
+    resample_options->SampleFormat = FFMS_FMT_S16;
+    if (FFMS_SetOutputFormatA(audio_source, resample_options, &errinfo_))
+    {
+        FFMS_DestroyAudioSource(audio_source);
+        audio_source = nullptr;
+        this->_handle_error();
+        return false;
+    }
+
+    audio_tracks_.push_back({_trackno, audio_source, FFMS_GetAudioProperties(audio_source)});
     return true;
 }
 
-void VideoReader::_close_video_sources()
+void VideoReader::_close_video_tracks()
 {
-    for (auto & p : video_sources_) {
-        if (p.second) FFMS_DestroyVideoSource(p.second);
+    for (auto & p : video_tracks_) {
+        if (p.source) FFMS_DestroyVideoSource(p.source);
     }
-    video_sources_.clear();
+    video_tracks_.clear();
 }
-void VideoReader::_close_audio_sources()
+void VideoReader::_close_audio_tracks()
 {
-    for (auto & p : audio_sources_) {
-        if (p.second) FFMS_DestroyAudioSource(p.second);
+    for (auto & p : audio_tracks_) {
+        if (p.source) FFMS_DestroyAudioSource(p.source);
     }
-    audio_sources_.clear();
+    audio_tracks_.clear();
 }
 
 bool VideoReader::open(std::string _fpath)
@@ -136,13 +148,13 @@ bool VideoReader::open(std::string _fpath)
     /* Retrieve the track number of the first video track */
     trackno = FFMS_GetFirstTrackOfType(index, FFMS_TYPE_VIDEO, &errinfo_);
     if (trackno >= 0) {
-        success &= _open_video_source(_fpath, trackno, index);
+        success &= _open_video_track(_fpath, trackno, index);
     }
 
     /* Retrieve the track number of the first audio track */
     trackno = FFMS_GetFirstTrackOfType(index, FFMS_TYPE_AUDIO, &errinfo_);
     if (trackno >= 0) {
-        success &= _open_audio_source(_fpath, trackno, index);
+        success &= _open_audio_track(_fpath, trackno, index);
     }
 
     /* Since the index is copied into the video source object upon its creation,
@@ -162,19 +174,47 @@ bool VideoReader::open(std::string _fpath)
 void VideoReader::close()
 {
     // reset sources
-    this->_close_video_sources();
-    this->_close_audio_sources();
+    this->_close_video_tracks();
+    this->_close_audio_tracks();
     // set as closed
     is_open_ = false;
 }
 
-const FFMS_Frame * VideoReader::get_frame(int _number)
+const FFMS_Frame * VideoReader::get_frame(int _number, int _i_video_track)
 {
-    // if (video_source_ == nullptr) { return nullptr; }
-    const FFMS_Frame *curframe = FFMS_GetFrame(video_sources_[0].second, _number, &errinfo_);
+    if (video_tracks_[_i_video_track].source == nullptr) {
+        return nullptr;
+    }
+    const FFMS_Frame *curframe = FFMS_GetFrame(video_tracks_[_i_video_track].source, _number, &errinfo_);
     if (curframe == nullptr) {
+        this->_handle_error();
+    }
+    return curframe;
+}
+
+std::unique_ptr<std::vector<uint8_t>> VideoReader::get_audio(int64_t _start, int64_t _n_samples, int _i_audio_track)
+{
+    auto & track = audio_tracks_[_i_audio_track];
+    if (track.source == nullptr) {
+        return nullptr;
+    }
+    _n_samples = std::min(_n_samples, track.props->NumSamples - _start);
+    if (_n_samples < 0) {
+        return nullptr;
+    }
+
+    // char chlayout_name[1024];
+    // av_get_channel_layout_string(chlayout_name, 1024, track.props->Channels, track.props->ChannelLayout);
+    // printf("BytesPerSample : %d\n", (int)track.source->BytesPerSample);
+    // printf("Channels       : %d\n", track.props->Channels);
+    // printf("SampleFormat   : %s\n", av_get_sample_fmt_name((AVSampleFormat)track.props->SampleFormat));
+    // printf("ChannelLayout  : %s\n", chlayout_name);
+
+    // allocate
+    auto buf = std::make_unique<std::vector<uint8_t>>(_n_samples * track.source->BytesPerSample);
+    if (FFMS_GetAudio(track.source, buf->data(), _start, _n_samples, &errinfo_)) {
         this->_handle_error();
         return nullptr;
     }
-    return curframe;
+    return buf;
 }
