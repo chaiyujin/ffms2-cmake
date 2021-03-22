@@ -28,7 +28,7 @@ int main (...) {
 
     auto sr = video_reader.audio_track(0).props->SampleRate;
     auto ch = video_reader.audio_track(0).props->Channels;
-    auto data = video_reader.get_audio(48000*4, 48000*3, 0);
+    auto data = video_reader.get_audio(sr*2, sr*3, 0);
     wav_io::save(
         "test.wav", sr, data->size() / video_reader.audio_track(0).source->BytesPerSample, ch,
         (const int16_t *)data->data()
